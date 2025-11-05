@@ -34,7 +34,7 @@ async function run() {
 
     // GET API
     app.get("/products", async (req, res) => {
-      const cursor = ProductsCollection.find({});
+      const cursor = ProductsCollection.find().sort({ price_min: -1 });
       const results = await cursor.toArray();
       res.send(results);
     });
