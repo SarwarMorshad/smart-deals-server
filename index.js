@@ -47,9 +47,17 @@ async function run() {
       res.send(result);
     });
 
+    // Products APIs
     // GET API
     app.get("/products", async (req, res) => {
-      const cursor = ProductsCollection.find().sort({ price_min: -1 });
+      const cursor = ProductsCollection.find();
+      const results = await cursor.toArray();
+      res.send(results);
+    });
+
+    // Latest Products API
+    app.get("/latestProducts", async (req, res) => {
+      const cursor = ProductsCollection.find().sort({ created_at: -1 }).limit(6);
       const results = await cursor.toArray();
       res.send(results);
     });
@@ -95,11 +103,25 @@ async function run() {
     // bids API
     // get all bids
     app.get("/bids", async (req, res) => {
-      const cursor = bidsCollection.find();
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.buyer_email = email;
+      }
+
+      const cursor = bidsCollection.find(query);
       const results = await cursor.toArray();
       res.send(results);
     });
 
+    // get all bid by product
+    app.get("/products/bids/:productId", async (req, res) => {
+      const productId = req.params.productId;
+      const query = { product: productId };
+      const cursor = bidsCollection.find(query);
+      const results = await cursor.toArray();
+      res.send(results);
+    });
     // post a bid
     app.post("/bids", async (req, res) => {
       const newBid = req.body;
