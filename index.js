@@ -31,6 +31,21 @@ async function run() {
 
     const database = client.db("smartDealsDB");
     const ProductsCollection = database.collection("products");
+    const bidsCollection = database.collection("bids");
+    const usersCollection = database.collection("users");
+
+    // Users API
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      const email = req.body.email;
+      const query = { email: email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "User already exists" });
+      }
+      const result = await usersCollection.insertOne(newUser);
+      res.send(result);
+    });
 
     // GET API
     app.get("/products", async (req, res) => {
@@ -77,6 +92,22 @@ async function run() {
       res.send(result);
     });
 
+    // bids API
+    // get all bids
+    app.get("/bids", async (req, res) => {
+      const cursor = bidsCollection.find();
+      const results = await cursor.toArray();
+      res.send(results);
+    });
+
+    // post a bid
+    app.post("/bids", async (req, res) => {
+      const newBid = req.body;
+      const result = await bidsCollection.insertOne(newBid);
+      res.send(result);
+    });
+
+    // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
