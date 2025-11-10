@@ -5,6 +5,12 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 3000;
 
+const admin = require("firebase-admin");
+const serviceAccount = require("./smart-deals-firebase-adminsdk.json");
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.cjj6frc.mongodb.net/?appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -18,6 +24,31 @@ const client = new MongoClient(uri, {
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+const logger = (req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+};
+
+const verifyFireBaseToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+  const idToken = authHeader.split(" ")[1];
+  if (!idToken) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+  // Verify token
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.decodedEmail = decodedToken.email;
+    next();
+  } catch (error) {
+    console.log("Invalid token");
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+};
 
 // Sample route
 app.get("/", (req, res) => {
@@ -123,8 +154,12 @@ async function run() {
     });
 
     // get all bids by user email
-    app.get("/users/bids/:userEmail", async (req, res) => {
+    app.get("/users/bids/:userEmail", logger, verifyFireBaseToken, async (req, res) => {
+      // console.log("Headers", req.headers);
       const userEmail = req.params.userEmail;
+      if (req.decodedEmail !== userEmail) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
       const query = { buyer_Email: userEmail };
       const cursor = bidsCollection.find(query);
       const results = await cursor.toArray();
