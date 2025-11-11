@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 3000;
@@ -48,6 +49,29 @@ const verifyFireBaseToken = async (req, res, next) => {
     console.log("Invalid token");
     return res.status(401).send({ message: "Unauthorized access" });
   }
+};
+
+// JWT API
+app.post("/getToken", (req, res) => {
+  const loggedUser = req.body;
+  const token = jwt.sign(loggedUser, process.env.JWT_SECRET, { expiresIn: "1h" });
+  res.send({ token });
+});
+
+// JWT Verification Middleware
+const verifyJWTToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden access" });
+    }
+    req.decodedEmail = decoded.email;
+    next();
+  });
 };
 
 // Sample route
@@ -145,7 +169,7 @@ async function run() {
     });
 
     // get all bid by product
-    app.get("/products/bids/:productId", async (req, res) => {
+    app.get("/products/bids/:productId", verifyFireBaseToken, async (req, res) => {
       const productId = req.params.productId;
       const query = { product: productId };
       const cursor = bidsCollection.find(query);
@@ -182,7 +206,7 @@ async function run() {
     });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // await client.close();
